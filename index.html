@@ -166,9 +166,14 @@
                 <p class="text-gray-500 text-sm mt-1">拖动物品放入缺口，观察电流如何绕圈流动</p>
             </div>
         </div>
-        <button onclick="resetExperiment()" class="px-5 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold transition-colors flex items-center gap-2 border border-gray-200 shadow-sm active:scale-95">
-            <i class="fa-solid fa-rotate-right text-eduBlue"></i> 重置实验
-        </button>
+        <div class="flex gap-2">
+            <button id="exportHtmlBtn" class="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl font-bold transition-colors flex items-center gap-2 border border-green-200 shadow-sm active:scale-95 text-sm">
+                <i class="fa-solid fa-download"></i> 导出完整HTML
+            </button>
+            <button onclick="resetExperiment()" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold transition-colors flex items-center gap-2 border border-gray-200 shadow-sm active:scale-95 text-sm">
+                <i class="fa-solid fa-rotate-right text-eduBlue"></i> 重置实验
+            </button>
+        </div>
     </header>
 
     <main class="flex-1 flex flex-col lg:flex-row gap-5 h-full min-h-0">
@@ -289,28 +294,24 @@
         let materialsData = [];
         let currentTestedItem = null; 
 
-        // ---------- localStorage 持久化 ----------
+        // ---------- localStorage 持久化（仅用于当前浏览器，不影响导出）----------
         const STORAGE_KEY = 'conductor_experiment_materials';
         
-        // 保存当前材料数据到 localStorage
         function saveMaterialsToLocal() {
             try {
-                // 只保存必要字段，避免循环引用
                 const toSave = materialsData.map(m => ({
                     id: m.id,
                     name: m.name,
                     type: m.type,
-                    img: m.img  // base64 或 url
+                    img: m.img
                 }));
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
             } catch(e) {
-                console.warn("保存失败，可能图片过大超出 localStorage 限制", e);
-                // 如果超出限制，提示用户图片过大
-                alert("提示：您替换的图片文件过大，无法永久保存。建议使用较小的图片（小于 1MB）。");
+                console.warn("保存失败", e);
+                alert("提示：您替换的图片文件过大，无法保存在本地。建议使用较小图片（<1MB）或使用“导出完整HTML”功能永久保存。");
             }
         }
         
-        // 从 localStorage 加载材料数据，如果没有则使用默认
         function loadMaterialsFromLocal() {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
@@ -322,11 +323,9 @@
                     }
                 } catch(e) {}
             }
-            // 否则使用默认
             materialsData = getDefaultMaterials();
         }
         
-        // 重置为默认材料（清除本地存储）
         function resetMaterialsToDefault() {
             localStorage.removeItem(STORAGE_KEY);
             materialsData = getDefaultMaterials();
@@ -336,17 +335,34 @@
             }
         }
         
-        // 更新某个材料的图片并保存
         function updateMaterialImage(id, newImgBase64) {
             const material = materialsData.find(m => m.id === id);
             if (material) {
                 material.img = newImgBase64;
-                saveMaterialsToLocal();        // 保存到 localStorage
+                saveMaterialsToLocal();
                 updateMaterialCardDisplay(id);
                 if (currentTestedItem && currentTestedItem.id === id) {
                     updateDropZoneForCurrentItem();
                 }
             }
+        }
+        
+        // ---------- 导出完整 HTML（包含当前所有图片数据）----------
+        function exportCompleteHtml() {
+            // 获取当前页面的完整 HTML 内容
+            const htmlContent = document.documentElement.outerHTML;
+            // 创建一个 Blob 对象
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            // 创建下载链接
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = 'conductor_experiment_complete.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('已导出完整HTML文件！\n请将此文件上传到GitHub Pages覆盖原文件，其他人访问就能看到您自定义的图片了。');
         }
         
         // ---------- 以下为渲染和交互逻辑 ----------
@@ -407,7 +423,6 @@
             input.onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    // 限制图片大小，避免 localStorage 溢出
                     if (file.size > 2 * 1024 * 1024) {
                         alert("图片太大（超过2MB），建议压缩后再上传，否则可能无法保存。");
                     }
@@ -588,11 +603,13 @@
             removeTestedItem();
         };
         
-        // 暴露重置材料函数给全局
         window.resetMaterialsToDefault = resetMaterialsToDefault;
         
+        // 绑定导出按钮事件
+        document.getElementById('exportHtmlBtn').addEventListener('click', exportCompleteHtml);
+        
         function init() {
-            loadMaterialsFromLocal();   // 先加载（可能是默认或保存的）
+            loadMaterialsFromLocal();
             renderMaterialList();
             hideConclusion();
             const dropZone = document.getElementById('drop-zone');

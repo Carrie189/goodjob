@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>互动实验：认识导体与绝缘体</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://data.aix101.com/cdn/npm/@tailwindcss/3.4.17.js"></script>
+    <!-- 引入 Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://data.aix101.com/cdn/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        eduBlue: '#4285F4',
+                        eduGreen: '#34A853',
+                        eduYellow: '#FBBC05',
+                        eduRed: '#EA4335',
+                        eduBg: '#F5F7FB'
+                    },
+                    boxShadow: {
+                        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #F5F7FB; 
+            overflow: hidden; 
+            touch-action: none;
+            user-select: none;
+        }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .light-on {
+            filter: drop-shadow(0 0 20px rgba(251,188,5,0.8)) drop-shadow(0 0 40px rgba(251,188,5,0.8));
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { filter: drop-shadow(0 0 15px rgba(251,188,5,0.6)); }
+            to { filter: drop-shadow(0 0 35px rgba(251,188,5,1)); }
+        }
+
+        .wire {
+            position: absolute;
+            background-color: #D1D5DB;
+            border-radius: 9999px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            transition: background-color 0.3s;
+            z-index: 10;
+        }
+        
+        .circuit-active .wire {
+            background-color: #9CA3AF;
+        }
+        
+        .circuit-active .wire::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(90deg, transparent, #FBBC05 50%, transparent);
+            background-size: 200% 100%;
+            opacity: 0.8;
+        }
+        
+        .circuit-active .wire-v::after {
+            background-image: linear-gradient(180deg, transparent, #FBBC05 50%, transparent);
+            background-size: 100% 200%;
+        }
+
+        @keyframes flow-right { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        @keyframes flow-left { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+        @keyframes flow-down { from { background-position: 0 200%; } to { background-position: 0 -200%; } }
+        @keyframes flow-up { from { background-position: 0 -200%; } to { background-position: 0 200%; } }
+
+        .circuit-active .dir-right::after { animation: flow-right 1s linear infinite; }
+        .circuit-active .dir-left::after { animation: flow-left 1s linear infinite; }
+        .circuit-active .dir-down::after { animation: flow-down 1s linear infinite; }
+        .circuit-active .dir-up::after { animation: flow-up 1s linear infinite; }
+
+        .dragging-source {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+
+        .drop-zone-highlight {
+            border-color: #4285F4 !important;
+            background-color: #E8F0FE !important;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(66, 133, 244, 0.3);
+        }
+
+        img { user-select: none; -webkit-user-drag: none; }
+        
+        .material-item {
+            position: relative;
+        }
+        .replace-img-btn {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(255,255,255,0.85);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #4b5563;
+            transition: all 0.1s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            backdrop-filter: blur(2px);
+            z-index: 15;
+        }
+        .replace-img-btn:hover {
+            background: #e5e7eb;
+            transform: scale(1.05);
+        }
+        .replace-img-btn:active {
+            transform: scale(0.95);
+        }
+        .material-img-container {
+            cursor: pointer;
+            position: relative;
+        }
+        .material-img-container:hover::after {
+            content: "📷 点击替换";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+            pointer-events: none;
+        }
+        .conclusion-bar {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col p-3 md:p-5 text-gray-800">
+
+    <!-- 头部标题 -->
+    <header class="bg-white rounded-2xl shadow-sm p-4 mb-4 flex items-center justify-between border-b-4 border-eduBlue">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-50 text-eduBlue p-3 rounded-xl">
+                <i class="fa-solid fa-bolt text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800 tracking-wide">认识导体与绝缘体</h1>
+                <p class="text-gray-500 text-sm mt-1">拖动物品放入缺口，观察电流如何绕圈流动</p>
+            </div>
+        </div>
+        <button onclick="resetExperiment()" class="px-5 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-bold transition-colors flex items-center gap-2 border border-gray-200 shadow-sm active:scale-95">
+            <i class="fa-solid fa-rotate-right text-eduBlue"></i> 重置实验
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row gap-5 h-full min-h-0">
+        
+        <!-- 左侧：材料台 -->
+        <div class="w-full lg:w-1/3 xl:w-1/4 bg-white rounded-2xl shadow-card p-4 flex flex-col h-full border border-gray-100">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-box-open text-eduYellow text-xl"></i>
+                    <h2 class="text-lg font-bold text-gray-700">实验材料箱</h2>
+                </div>
+                <button onclick="resetMaterialsToDefault()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded-full transition flex items-center gap-1" title="重置所有材料为默认">
+                    <i class="fa-solid fa-arrows-rotate text-xs"></i> 重置材料
+                </button>
+            </div>
+            
+            <div id="material-list" class="grid grid-cols-2 gap-3 overflow-y-auto pb-2 pr-1 flex-1 content-start"></div>
+        </div>
+
+        <div class="w-full lg:flex-1 flex flex-col gap-5 h-full">
+            
+            <div id="status-board" class="bg-white rounded-2xl shadow-card p-4 border-l-8 border-gray-300 transition-all duration-300 flex items-center gap-4 min-h-[90px]">
+                <div id="status-icon" class="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-2xl transition-colors shrink-0">
+                    <i class="fa-solid fa-circle-question"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 id="status-title" class="text-xl font-bold text-gray-700">等待放入材料</h3>
+                    <p id="status-desc" class="text-gray-500 mt-1 text-sm">电路目前是断开的，灯泡不会发光。</p>
+                </div>
+            </div>
+
+            <div id="circuit-board" class="flex-1 bg-white rounded-2xl shadow-card relative flex flex-col items-center justify-center p-6 overflow-hidden border border-gray-100">
+                <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(#000 2px, transparent 2px); background-size: 30px 30px;"></div>
+                
+                <div class="relative w-full max-w-3xl h-[24rem] flex items-center justify-center mt-4">
+                    
+                    <div class="absolute left-6 md:left-16 z-20 flex flex-col items-center top-8">
+                        <span class="text-sm font-bold text-gray-500 mb-1 bg-white px-2 py-1 rounded-md shadow-sm">电池</span>
+                        <div class="w-16 h-28 bg-white rounded-xl shadow-md border-2 border-gray-200 p-1 flex flex-col items-center justify-center relative">
+                            <div class="absolute -top-4 text-red-500 font-bold text-2xl">+</div>
+                            <img src="https://api.zcat.cn/udata/711842/png/6dc75536284230245368a6c06b54c796.png" class="w-full h-full object-contain pointer-events-none" alt="电池">
+                            <div class="absolute -bottom-5 text-blue-500 font-bold text-2xl">-</div>
+                        </div>
+                        <div class="absolute -right-2 top-12 w-4 h-2 bg-gray-700"></div>
+                        <div class="absolute -right-2 bottom-12 w-4 h-2 bg-gray-700"></div>
+                    </div>
+
+                    <div class="wire dir-right h-2" style="left: 6.5rem; top: 3.8rem; right: 58%;"></div>
+
+                    <div class="absolute left-1/2 top-16 -translate-x-1/2 z-30">
+                        <div id="drop-zone" class="w-32 h-32 md:w-36 md:h-36 rounded-2xl border-4 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer shadow-inner relative group">
+                            <i id="drop-icon" class="fa-solid fa-arrow-down text-3xl text-gray-300 mb-2 group-hover:text-eduBlue transition-colors pointer-events-none"></i>
+                            <span id="drop-text" class="text-sm font-bold text-gray-400 text-center px-2 group-hover:text-eduBlue transition-colors pointer-events-none">放入此缺口</span>
+                        </div>
+                    </div>
+
+                    <div class="wire dir-right h-2" style="left: 58%; top: 3.8rem; right: 6.5rem;"></div>
+
+                    <div class="absolute right-6 md:right-16 z-20 flex flex-col items-center top-8">
+                        <span class="text-sm font-bold text-gray-500 mb-1 bg-white px-2 py-1 rounded-md shadow-sm">小灯泡</span>
+                        <div class="w-20 h-28 bg-white rounded-xl shadow-md border-2 border-gray-200 p-1 flex items-center justify-center relative">
+                            <img id="bulb-img" src="https://api.zcat.cn/udata/711842/png/1a56d727b6868e71815baf31164036a0.png" class="w-[110%] h-[110%] object-contain pointer-events-none transition-all duration-300" alt="灯泡">
+                        </div>
+                        <div class="absolute -left-2 top-12 w-4 h-2 bg-gray-700"></div>
+                        <div class="absolute -left-2 bottom-12 w-4 h-2 bg-gray-700"></div>
+                    </div>
+
+                    <div class="wire wire-v dir-down w-2" style="right: 5rem; top: 10rem; height: 8rem;"></div>
+                    <div class="wire dir-left h-2" style="left: 5.5rem; right: 5rem; top: 18rem;"></div>
+                    <div class="wire wire-v dir-up w-2" style="left: 5.5rem; top: 10rem; height: 8rem;"></div>
+                </div>
+                
+                <div id="conclusion-bar" class="conclusion-bar mt-auto w-full flex justify-center z-10 pt-2 hidden">
+                    <div class="bg-blue-50 border border-blue-100 text-eduBlue px-5 py-3 rounded-2xl font-bold text-sm md:text-base shadow-sm flex items-center gap-3 max-w-full">
+                        <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-eduYellow shadow-sm shrink-0">
+                            <i class="fa-solid fa-lightbulb"></i>
+                        </div>
+                        <span class="leading-tight text-gray-800 text-center md:text-left">
+                            小灯泡亮，则物体<span class="text-eduGreen font-bold mx-0.5">容易让电流通过</span>。<br class="hidden sm:inline">小灯泡不亮，则物体<span class="text-eduRed font-bold mx-0.5">不容易让电流通过</span>。
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ---------- SVG 生成函数 (默认图片) ----------
+        function getKeySvg() {
+            return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23FFF9E6' rx='12'/%3E%3Cpath fill='%23F4B942' stroke='%23D49B2A' stroke-width='2' d='M42,28 L58,28 L58,44 L68,44 L68,56 L58,56 L58,72 L42,72 Z' /%3E%3Ccircle cx='50' cy='50' r='10' fill='%23D49B2A' /%3E%3Crect x='46' y='30' width='8' height='18' fill='%23F4B942' /%3E%3C/svg%3E";
+        }
+        function getWoodStickSvg() {
+            return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F5E6D3' rx='12'/%3E%3Crect x='30' y='20' width='40' height='60' rx='8' fill='%23C19A6B' stroke='%239C6E3E' stroke-width='2' /%3E%3Cline x1='35' y1='35' x2='65' y2='35' stroke='%239C6E3E' stroke-width='2' stroke-dasharray='3 3' /%3E%3Cline x1='35' y1='50' x2='65' y2='50' stroke='%239C6E3E' stroke-width='2' stroke-dasharray='3 3' /%3E%3Cline x1='35' y1='65' x2='65' y2='65' stroke='%239C6E3E' stroke-width='2' stroke-dasharray='3 3' /%3E%3C/svg%3E";
+        }
+        function getAluminumFoilSvg() {
+            return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F0F4F8' rx='12'/%3E%3Crect x='20' y='20' width='60' height='60' rx='6' fill='%23E2E8F0' stroke='%2394A3B8' stroke-width='2' /%3E%3Cpath d='M28,30 L72,30 M28,45 L72,45 M28,60 L72,60 M28,75 L72,75' stroke='%23A0B0C8' stroke-width='1.5' stroke-dasharray='4 3' /%3E%3Ccircle cx='50' cy='50' r='12' fill='%23CBD5E1' stroke='%237F8EA4' stroke-width='1.5' /%3E%3C/svg%3E";
+        }
+        function getFoamBlockSvg() {
+            return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F0F8FF' rx='12'/%3E%3Crect x='22' y='22' width='56' height='56' rx='8' fill='%23E0F0FF' stroke='%2390B8D0' stroke-width='2.5' /%3E%3Ccircle cx='38' cy='38' r='4' fill='%23B0D4F0' /%3E%3Ccircle cx='62' cy='42' r='4.5' fill='%23B0D4F0' /%3E%3Ccircle cx='45' cy='60' r='3.5' fill='%23B0D4F0' /%3E%3Ccircle cx='68' cy='68' r='3' fill='%23B0D4F0' /%3E%3Ccircle cx='32' cy='72' r='3' fill='%23B0D4F0' /%3E%3C/svg%3E";
+        }
+        
+        // 默认材料配置（原始默认）
+        function getDefaultMaterials() {
+            return [
+                { id: 'm1', name: '曲别针', type: 'conductor', img: 'https://api.zcat.cn/udata/711842/png/ba4d9cc0ee5f5fa31ba1640a15847397.png' },
+                { id: 'm2', name: '塑料尺', type: 'insulator', img: 'https://api.zcat.cn/udata/711842/png/c0728b027cd7088e3a26e91a70eec981.png' },
+                { id: 'm3', name: '铁钉', type: 'conductor', img: 'https://api.zcat.cn/udata/711842/png/0fa39b4482f6feaae02bf4cc89da6bff.png' },
+                { id: 'm4', name: '铜钥匙', type: 'conductor', img: getKeySvg() },
+                { id: 'm5', name: '气球', type: 'insulator', img: 'https://api.zcat.cn/udata/711842/png/4c138a7cb8e735c86d5875990f1877d0.png' },
+                { id: 'm6', name: '木条', type: 'insulator', img: getWoodStickSvg() },
+                { id: 'm7', name: '玻璃片', type: 'insulator', img: 'https://api.zcat.cn/udata/711842/png/4225ce025b9016f4f8b20ab6a3a07cfc.png' },
+                { id: 'm8', name: '橡皮', type: 'insulator', img: 'https://api.zcat.cn/udata/711842/png/b0e6ee3dfc774d02755c96b92cd7b727.png' },
+                { id: 'm9', name: '铝箔纸', type: 'conductor', img: getAluminumFoilSvg() },
+                { id: 'm10', name: '泡沫块', type: 'insulator', img: getFoamBlockSvg() }
+            ];
+        }
+        
+        let materialsData = [];
+        let currentTestedItem = null; 
+
+        // ---------- localStorage 持久化 ----------
+        const STORAGE_KEY = 'conductor_experiment_materials';
+        
+        // 保存当前材料数据到 localStorage
+        function saveMaterialsToLocal() {
+            try {
+                // 只保存必要字段，避免循环引用
+                const toSave = materialsData.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    type: m.type,
+                    img: m.img  // base64 或 url
+                }));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+            } catch(e) {
+                console.warn("保存失败，可能图片过大超出 localStorage 限制", e);
+                // 如果超出限制，提示用户图片过大
+                alert("提示：您替换的图片文件过大，无法永久保存。建议使用较小的图片（小于 1MB）。");
+            }
+        }
+        
+        // 从 localStorage 加载材料数据，如果没有则使用默认
+        function loadMaterialsFromLocal() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length === 10) {
+                        materialsData = parsed;
+                        return;
+                    }
+                } catch(e) {}
+            }
+            // 否则使用默认
+            materialsData = getDefaultMaterials();
+        }
+        
+        // 重置为默认材料（清除本地存储）
+        function resetMaterialsToDefault() {
+            localStorage.removeItem(STORAGE_KEY);
+            materialsData = getDefaultMaterials();
+            renderMaterialList();
+            if (currentTestedItem) {
+                removeTestedItem();
+            }
+        }
+        
+        // 更新某个材料的图片并保存
+        function updateMaterialImage(id, newImgBase64) {
+            const material = materialsData.find(m => m.id === id);
+            if (material) {
+                material.img = newImgBase64;
+                saveMaterialsToLocal();        // 保存到 localStorage
+                updateMaterialCardDisplay(id);
+                if (currentTestedItem && currentTestedItem.id === id) {
+                    updateDropZoneForCurrentItem();
+                }
+            }
+        }
+        
+        // ---------- 以下为渲染和交互逻辑 ----------
+        function renderMaterialList() {
+            const listContainer = document.getElementById('material-list');
+            listContainer.innerHTML = '';
+            
+            materialsData.forEach((item) => {
+                const el = document.createElement('div');
+                el.draggable = true;
+                el.className = 'material-item bg-white border-2 border-gray-100 rounded-xl p-2 flex flex-col items-center gap-1 cursor-grab hover:border-eduBlue hover:shadow-md transition-all touch-none select-none';
+                el.dataset.id = item.id;
+                el.dataset.type = item.type;
+                el.dataset.name = item.name;
+                
+                el.innerHTML = `
+                    <div class="material-img-container w-14 h-14 md:w-16 md:h-16 bg-gray-50/50 rounded-lg flex items-center justify-center overflow-hidden pointer-events-auto" data-id="${item.id}">
+                        <img src="${item.img}" draggable="false" class="w-full h-full object-contain p-1" style="mix-blend-mode: multiply;">
+                    </div>
+                    <span class="material-name font-bold text-gray-600 text-sm pointer-events-none">${escapeHtml(item.name)}</span>
+                    <button class="replace-img-btn" data-id="${item.id}" title="替换图片"><i class="fa-regular fa-image"></i></button>
+                `;
+                
+                el.addEventListener('dragstart', handleDragStart);
+                el.addEventListener('dragend', handleDragEnd);
+                
+                const replaceBtn = el.querySelector('.replace-img-btn');
+                replaceBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerImageUpload(item.id);
+                });
+                
+                const imgContainer = el.querySelector('.material-img-container');
+                imgContainer.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerImageUpload(item.id);
+                });
+                
+                listContainer.appendChild(el);
+            });
+        }
+        
+        function escapeHtml(str) {
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        function triggerImageUpload(id) {
+            const material = materialsData.find(m => m.id === id);
+            if (!material) return;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    // 限制图片大小，避免 localStorage 溢出
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert("图片太大（超过2MB），建议压缩后再上传，否则可能无法保存。");
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        const base64 = ev.target.result;
+                        updateMaterialImage(id, base64);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+        }
+        
+        function updateMaterialCardDisplay(id) {
+            const material = materialsData.find(m => m.id === id);
+            if (!material) return;
+            const card = document.querySelector(`.material-item[data-id="${id}"]`);
+            if (card) {
+                const imgDiv = card.querySelector('.material-img-container img');
+                if (imgDiv) imgDiv.src = material.img;
+            }
+        }
+        
+        function updateDropZoneForCurrentItem() {
+            if (!currentTestedItem) return;
+            const material = materialsData.find(m => m.id === currentTestedItem.id);
+            if (!material) return;
+            const dropZone = document.getElementById('drop-zone');
+            const imgElement = dropZone.querySelector('img');
+            if (imgElement) imgElement.src = material.img;
+        }
+        
+        function showConclusion() {
+            const conclusionBar = document.getElementById('conclusion-bar');
+            conclusionBar.classList.remove('hidden');
+        }
+        
+        function hideConclusion() {
+            const conclusionBar = document.getElementById('conclusion-bar');
+            conclusionBar.classList.add('hidden');
+        }
+        
+        function handleDragStart(e) {
+            const el = e.currentTarget;
+            if (el.classList.contains('opacity-40')) {
+                e.preventDefault();
+                return;
+            }
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                id: el.dataset.id,
+                type: el.dataset.type,
+                name: el.dataset.name
+            }));
+            e.dataTransfer.effectAllowed = 'copy';
+            setTimeout(() => { el.classList.add('dragging-source'); }, 0);
+        }
+        
+        function handleDragEnd(e) {
+            e.currentTarget.classList.remove('dragging-source');
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            document.getElementById('drop-zone').classList.add('drop-zone-highlight');
+        }
+        
+        function handleDragLeave(e) {
+            document.getElementById('drop-zone').classList.remove('drop-zone-highlight');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('drop-zone').classList.remove('drop-zone-highlight');
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (!dataStr) return;
+            const data = JSON.parse(dataStr);
+            testMaterial(data);
+        }
+        
+        function testMaterial(data) {
+            const freshMaterial = materialsData.find(m => m.id === data.id);
+            if (!freshMaterial) return;
+            
+            if (currentTestedItem) {
+                const oldEl = document.querySelector(`.material-item[data-id="${currentTestedItem.id}"]`);
+                if (oldEl) oldEl.classList.remove('opacity-40', 'pointer-events-none', 'scale-95', 'bg-gray-100');
+            }
+            
+            currentTestedItem = { id: freshMaterial.id, type: freshMaterial.type, name: freshMaterial.name };
+            
+            const currentEl = document.querySelector(`.material-item[data-id="${freshMaterial.id}"]`);
+            if (currentEl) currentEl.classList.add('opacity-40', 'pointer-events-none', 'scale-95', 'bg-gray-100');
+            
+            const dropZone = document.getElementById('drop-zone');
+            dropZone.innerHTML = `
+                <img src="${freshMaterial.img}" draggable="false" class="w-16 h-16 md:w-20 md:h-20 object-contain mb-2 pointer-events-none" style="mix-blend-mode: multiply;">
+                <span class="text-sm font-bold text-gray-800 bg-white border border-gray-100 px-3 py-1 rounded-full shadow-sm pointer-events-none">${escapeHtml(freshMaterial.name)}</span>
+                <div class="absolute -top-3 -right-3 w-8 h-8 bg-white border border-gray-200 text-gray-500 rounded-full flex items-center justify-center shadow-md hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer z-10" onclick="removeTestedItem(event)">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
+                <div class="absolute top-1/2 -left-2 w-4 h-4 bg-gray-400 rounded-full -mt-2 shadow-inner"></div>
+                <div class="absolute top-1/2 -right-2 w-4 h-4 bg-gray-400 rounded-full -mt-2 shadow-inner"></div>
+            `;
+            dropZone.className = 'w-32 h-32 md:w-36 md:h-36 rounded-2xl border-4 border-solid border-gray-400 bg-white shadow-md flex flex-col items-center justify-center transition-all duration-200 cursor-pointer relative';
+            
+            evaluateCircuit(freshMaterial);
+            showConclusion();
+        }
+        
+        function evaluateCircuit(item) {
+            const statusBoard = document.getElementById('status-board');
+            const statusIcon = document.getElementById('status-icon');
+            const statusTitle = document.getElementById('status-title');
+            const statusDesc = document.getElementById('status-desc');
+            const bulbImg = document.getElementById('bulb-img');
+            const circuitBoard = document.getElementById('circuit-board');
+            
+            if (item.type === 'conductor') {
+                statusBoard.className = 'bg-white rounded-2xl shadow-card p-4 border-l-8 border-eduGreen transition-all duration-300 flex items-center gap-4 min-h-[90px]';
+                statusIcon.className = 'w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-eduGreen text-2xl transition-colors shrink-0';
+                statusIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                statusTitle.innerText = '实验成功！灯泡亮了！';
+                statusTitle.className = 'text-xl font-bold text-eduGreen';
+                statusDesc.innerHTML = `<strong class="text-gray-800">${escapeHtml(item.name)}</strong> 能让电流通过，它属于 <strong class="text-eduGreen text-lg px-1">导体</strong>。`;
+                bulbImg.src = 'https://api.zcat.cn/udata/711842/png/8faefb3323505115f870dd221f47b89f.png';
+                bulbImg.classList.add('light-on');
+                circuitBoard.classList.add('circuit-active');
+            } else {
+                statusBoard.className = 'bg-white rounded-2xl shadow-card p-4 border-l-8 border-eduRed transition-all duration-300 flex items-center gap-4 min-h-[90px]';
+                statusIcon.className = 'w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-eduRed text-2xl transition-colors shrink-0';
+                statusIcon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                statusTitle.innerText = '电路断开！灯泡没亮。';
+                statusTitle.className = 'text-xl font-bold text-eduRed';
+                statusDesc.innerHTML = `<strong class="text-gray-800">${escapeHtml(item.name)}</strong> 阻断了电流，它属于 <strong class="text-eduRed text-lg px-1">绝缘体</strong>。`;
+                bulbImg.src = 'https://api.zcat.cn/udata/711842/png/1a56d727b6868e71815baf31164036a0.png';
+                bulbImg.classList.remove('light-on');
+                circuitBoard.classList.remove('circuit-active');
+            }
+        }
+        
+        window.removeTestedItem = function(e) {
+            if (e) e.stopPropagation(); 
+            if (!currentTestedItem) return;
+            const oldEl = document.querySelector(`.material-item[data-id="${currentTestedItem.id}"]`);
+            if (oldEl) oldEl.classList.remove('opacity-40', 'pointer-events-none', 'scale-95', 'bg-gray-100');
+            currentTestedItem = null;
+            const dropZone = document.getElementById('drop-zone');
+            dropZone.innerHTML = `
+                <i id="drop-icon" class="fa-solid fa-arrow-down text-3xl text-gray-300 mb-2 group-hover:text-eduBlue transition-colors pointer-events-none"></i>
+                <span id="drop-text" class="text-sm font-bold text-gray-400 text-center px-2 group-hover:text-eduBlue transition-colors pointer-events-none">放入此缺口</span>
+            `;
+            dropZone.className = 'w-32 h-32 md:w-36 md:h-36 rounded-2xl border-4 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer shadow-inner relative group';
+            resetUIState();
+            hideConclusion();
+        };
+        
+        function resetUIState() {
+            const statusBoard = document.getElementById('status-board');
+            const statusIcon = document.getElementById('status-icon');
+            const statusTitle = document.getElementById('status-title');
+            const statusDesc = document.getElementById('status-desc');
+            const bulbImg = document.getElementById('bulb-img');
+            const circuitBoard = document.getElementById('circuit-board');
+            statusBoard.className = 'bg-white rounded-2xl shadow-card p-4 border-l-8 border-gray-300 transition-all duration-300 flex items-center gap-4 min-h-[90px]';
+            statusIcon.className = 'w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-2xl transition-colors shrink-0';
+            statusIcon.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
+            statusTitle.innerText = '等待放入材料';
+            statusTitle.className = 'text-xl font-bold text-gray-700';
+            statusDesc.innerText = '电路目前是断开的，灯泡不会发光。';
+            bulbImg.src = 'https://api.zcat.cn/udata/711842/png/1a56d727b6868e71815baf31164036a0.png';
+            bulbImg.classList.remove('light-on');
+            circuitBoard.classList.remove('circuit-active');
+        }
+        
+        window.resetExperiment = function() {
+            removeTestedItem();
+        };
+        
+        // 暴露重置材料函数给全局
+        window.resetMaterialsToDefault = resetMaterialsToDefault;
+        
+        function init() {
+            loadMaterialsFromLocal();   // 先加载（可能是默认或保存的）
+            renderMaterialList();
+            hideConclusion();
+            const dropZone = document.getElementById('drop-zone');
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('dragleave', handleDragLeave);
+            dropZone.addEventListener('drop', handleDrop);
+            dropZone.addEventListener('click', (e) => {
+                if (e.target.closest('.absolute') && currentTestedItem) removeTestedItem(e);
+            });
+        }
+        
+        window.onload = init;
+    </script>
+</body>
+</html>
